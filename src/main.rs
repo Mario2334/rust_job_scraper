@@ -27,20 +27,48 @@ async fn make_job_request() -> Vec<Job> {
 
     // Iterate over the job postings and print out the title and link
     for job in document.select(&selector) {
-        let title = job.select(&Selector::parse("title").unwrap()).next().unwrap().text().collect::<String>();
+        let mut title = job.select(&Selector::parse("title").unwrap()).next().unwrap().text().collect::<String>();
         let link = job.select(&Selector::parse("guid").unwrap()).next().unwrap().text().collect::<String>();
         let description = job.select(&Selector::parse("description").unwrap()).next().unwrap().text().collect::<String>();
         let date = job.select(&Selector::parse("pubDate").unwrap()).next().unwrap().text().collect::<String>();
         let dt = DateTime::parse_from_rfc2822(date.as_str()).unwrap();
+        title = title.replace("<![CDATA[", "");
+        title = title.replace("]]>", "");
 
         println!("{}", link);
 
-        let job_struct = Job::new(title, link, description, dt);
+        let job_struct = Job::new(title, link, description,dt, String::from("Upwork"));
 
         job_store.insert(job_store.len(),job_struct);
         // println!("{} - {}", title, link);
     }
     return job_store;
+}
+
+async fn push_table(job_list: Vec<Job>) {
+    let base = airtable::new::<Job>("keyBjjQARXZg2S0Rw", "appcFeE1g7vQFPGVB", "tblFRvg1Xplqf7SW5");
+    for job in job_list {
+        let created_job = base.create(&job);
+        match created_job {
+            Err(e) => println!("{}", e),
+            _ => {}
+        }
+        // println!("{:?}", created_job);
+    }
+
+    // let mut records: Vec<Record<Job>> = vec![];
+    // for job in job_list {
+    //     let record = Record{
+    //         id: "".to_string(),
+    //         fields: job,
+    //         created_time: None,
+    //     };
+    //     records.insert(records.len(),record);
+    // }
+    //
+    // let airtable = Airtable::new("keyBjjQARXZg2S0Rw", "appcFeE1g7vQFPGVB","");
+    //
+    // airtable.create_records("tblFRvg1Xplqf7SW5", records).await.expect("TODO: panic message");
 }
 
 
@@ -51,6 +79,7 @@ async fn make_job_request() -> Vec<Job> {
 /// - https://github.com/aws-samples/serverless-rust-demo/
 async fn function_handler(event: LambdaEvent<CloudWatchEvent>) -> Result<(), Error> {
     let job_store = make_job_request().await;
+    push_table(job_store).await;
     Ok(())
 }
 
