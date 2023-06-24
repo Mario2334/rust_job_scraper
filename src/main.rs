@@ -1,5 +1,6 @@
 mod models;
 
+use std::collections::HashSet;
 use std::ops::Deref;
 use reqwest::header::{HeaderMap, USER_AGENT};
 use scraper::{Html, Selector};
@@ -45,6 +46,12 @@ async fn make_job_request() -> Vec<Job> {
     return job_store;
 }
 
+fn get_job_airtable() -> Vec<Job> {
+    let base = airtable::new::<Job>("keyBjjQARXZg2S0Rw", "appcFeE1g7vQFPGVB", "tblFRvg1Xplqf7SW5");
+    let results = base.query().into_iter().collect();
+    results
+}
+
 async fn push_table(job_list: Vec<Job>) {
     let base = airtable::new::<Job>("keyBjjQARXZg2S0Rw", "appcFeE1g7vQFPGVB", "tblFRvg1Xplqf7SW5");
     for job in job_list {
@@ -71,6 +78,12 @@ async fn push_table(job_list: Vec<Job>) {
     // airtable.create_records("tblFRvg1Xplqf7SW5", records).await.expect("TODO: panic message");
 }
 
+async fn compare_with_current_data(scrapped_job_list: HashSet<Job>) -> Vec<Job> {
+    let results: HashSet<Job> = get_job_airtable().into_iter().collect();
+    let compare: Vec<Job> = (&scrapped_job_list - &results).iter().cloned().collect();
+    compare
+}
+
 
 /// This is the main body for the function.
 /// Write your code inside it.
@@ -78,7 +91,14 @@ async fn push_table(job_list: Vec<Job>) {
 /// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/examples
 /// - https://github.com/aws-samples/serverless-rust-demo/
 async fn function_handler(event: LambdaEvent<CloudWatchEvent>) -> Result<(), Error> {
-    let job_store = make_job_request().await;
+    let mut job_store = make_job_request().await;
+    // for job in &job_store {
+    //     println!("{}", job);
+    // }
+    job_store = compare_with_current_data(job_store.into_iter().collect()).await;
+    // for job in &job_store {
+    //     println!("{}", job);
+    // }
     push_table(job_store).await;
     Ok(())
 }

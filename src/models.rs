@@ -1,7 +1,9 @@
+use std::fmt;
+use std::fmt::{Formatter, write};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, FixedOffset};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Job {
     #[serde(default, skip_serializing)]
     id: String,
@@ -41,5 +43,11 @@ impl airtable::Record for Job {
 
     fn id(&self) -> &str {
         &self.id
+    }
+}
+
+impl fmt::Display for Job {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.title)
     }
 }
